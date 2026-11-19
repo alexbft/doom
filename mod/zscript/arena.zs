@@ -151,7 +151,7 @@ class ArenaHandler : EventHandler
 
 			let mo = Actor.Spawn(cls, pos, ALLOW_REPLACE);
 			if (!mo) return null;
-			if (mo.bSolid && !mo.TestMobjLocation())
+			if (!FitsAt(mo))
 			{
 				mo.ClearCounters();
 				mo.Destroy();
@@ -163,7 +163,20 @@ class ArenaHandler : EventHandler
 		return null;
 	}
 
-	static bool IsArenaSwitch(Line ln)
+	// True if mo stands on one flat floor: no walls/actors in the way and its
+	// whole box is at the same height. (TestMobjLocation only checks the floor
+	// under the center, so a monster in a cut could overlap a tier's side and
+	// get stuck in it.)
+	static bool FitsAt(Actor mo)
+	{
+		FCheckPosition tm;
+		if (!mo.CheckPosition(mo.pos.xy, false, tm)) return false;
+		if (tm.floorz > mo.pos.z + 0.5) return false;          // overlaps a higher floor
+		if (tm.dropoffz < tm.floorz - 0.5) return false;       // hangs over a ledge
+		return mo.pos.z + mo.height <= tm.ceilingz;
+	}
+
+		static bool IsArenaSwitch(Line ln)
 	{
 		if (!ln) return false;
 		let it = level.CreateLineIdIterator(SWITCH_LINE_ID);

@@ -9,6 +9,8 @@ version "4.10"
 //   look   - turn around near the center (east of the pool): 4 shots at 0/90/180/270 degrees
 //   button - walk up to the east switch, press it, look at the spawn area
 //   acid   - stand in the acid pool for 2 s, shot (health should drop)
+//   spawncheck - spawn 300 random Barons/items, print how many overlap a
+//            different floor height or the void (should be 0), one shot
 //   levels - level 1, refused press, kill all, cleared message, level 2
 class DevShotHandler : EventHandler
 {
@@ -26,6 +28,7 @@ class DevShotHandler : EventHandler
 		else if (scene == "button") ButtonScene(pmo, t);
 		else if (scene == "levels") LevelsScene(pmo, t);
 		else if (scene == "acid") AcidScene(pmo, t);
+		else if (scene == "spawncheck") SpawnCheckScene(pmo, t);
 		else LookScene(pmo, t);
 	}
 
@@ -81,6 +84,43 @@ class DevShotHandler : EventHandler
 	{
 		if (t == 0) { pmo.SetOrigin((0, 0, 0), false); Face(pmo, 180); }
 		else if (t == 70) level.MakeScreenShot();
+	}
+
+	void SpawnCheckScene(PlayerPawn pmo, int t)
+	{
+		if (t == 0)
+		{
+			pmo.player.cheats |= CF_GODMODE;
+			int bad, total;
+			for (int i = 0; i < 300; i++)
+			{
+				// Baron: big radius (24), Clip: a non-solid item
+				class<Actor> cls = (i % 2) ? "BaronOfHell" : "Clip";
+				let mo = ArenaHandler.SpawnRandom(cls, ArenaHandler.SPAWN_RADIUS, pmo.pos.xy, 0);
+				if (!mo) continue;
+				total++;
+				if (!FlatUnder(mo)) bad++;
+				if (mo.bIsMonster) mo.bDormant = true;   // don't wander off before the check
+			}
+			Console.Printf("spawncheck: %d spawned, %d bad", total, bad);
+		}
+		else if (t == 10) level.MakeScreenShot();
+	}
+
+	// Center and the 4 box corners are all in the level at the same floor height.
+	static bool FlatUnder(Actor mo)
+	{
+		double r = mo.radius;
+		double z = mo.CurSector.floorplane.ZAtPoint(mo.pos.xy);
+		static const double DX[] = { 0, -1, 1, -1, 1 };
+		static const double DY[] = { 0, -1, -1, 1, 1 };
+		for (int k = 0; k < 5; k++)
+		{
+			Vector2 p = mo.pos.xy + (DX[k] * r, DY[k] * r);
+			if (!level.IsPointInLevel((p, z))) return false;
+			if (abs(level.PointInSector(p).floorplane.ZAtPoint(p) - z) > 0.5) return false;
+		}
+		return true;
 	}
 
 	static void KillAll()

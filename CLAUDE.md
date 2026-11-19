@@ -37,6 +37,7 @@ SHOTS=start  tools/devrun.sh        # dev: from the player start: switch, then t
 SHOTS=look   tools/devrun.sh        # dev: 4 screenshots turning around in the center
 SHOTS=button tools/devrun.sh        # dev: walk to switch, press it, look at spawned monsters
 SHOTS=acid   tools/devrun.sh        # dev: stand in the acid pool, health should drop
+SHOTS=spawncheck tools/devrun.sh    # dev: 300 random spawns, prints how many straddle floor heights (must be 0)
 SHOTS=levels tools/devrun.sh        # dev: level 1, refused press, kill all, level 2
 ```
 
