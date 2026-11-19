@@ -4,16 +4,15 @@
 Layout (all rings are concentric octagons, corner 0 at +22.5 deg so edge 0
 is the flat east wall):
   * flat main floor in the middle with an acid (nukage) pool at the center;
-  * along the walls, STEP_COUNT tiers rising STEP_H each (the last, widest
-    one is a ledge running along the wall);
+  * along the walls, colosseum-style spectator tiers: each rises STEP_H
+    (still walkable) and the last, widest one is a walkway along the wall;
   * square pillars (holes in the main floor sector) give some cover;
   * a switch sits in a small niche in the middle of the east wall, at ledge
     level; the player starts on the steps in front of it, facing it;
   * the switch line has id SWITCH_LINE_ID; the game logic (ArenaHandler in
     mod/zscript/arena.zs) catches its activation and starts the next level.
     The line special itself is a no-op (sets the niche light to its own
-    value) - it only exists so the switch is usable and toggles its texture;
-  * a MapSpot with tid WEAPON_SPOT_TID marks where each level's weapon appears.
+    value) - it only exists so the switch is usable and toggles its texture.
 
 UZDoom builds BSP nodes itself when they are missing, so the WAD only holds
 the map marker, TEXTMAP and ENDMAP lumps.
@@ -25,18 +24,19 @@ import struct
 from pathlib import Path
 
 MAP_NAME = "ARENA01"
-RADIUS = 1344          # distance from center to the outer wall's vertices
-FLOOR_H, CEIL_H = 0, 320
+MAIN_RADIUS = 1100     # vertex radius of the flat main floor (inside the tiers)
+FLOOR_H, CEIL_H = 0, 448
 WALL_TEX = "STONE2"
 FLOOR_TEX = "FLOOR4_8"
 CEIL_TEX = "F_SKY1"    # sky ceiling = open arena
 LIGHT = 192
 
-# Steps along the walls: widths (perpendicular, wall-to-center order is
-# reversed: the last entry is the outermost ledge) and height of each step.
-STEP_WIDTHS = [64, 64, 96]
-STEP_H = 16
-STEP_TEX = "STEP6"     # 16 px tall riser texture
+# Spectator tiers along the walls: depth of each tier (perpendicular to the
+# wall), from the main floor outwards; the last one is the top walkway.
+# STEP_H is the player's max step height, so the tiers can be walked up.
+STEP_WIDTHS = [64] * 6 + [128]
+STEP_H = 24
+STEP_TEX = "MARBLE1"
 STEP_FLAT = "FLAT5_4"
 
 # Acid pool in the center
@@ -47,8 +47,7 @@ POOL_EDGE_TEX = "NUKE24"
 POOL_LIGHT = 224
 POOL_DAMAGE, POOL_DAMAGE_INTERVAL = 5, 32   # classic nukage: 5 hp per 32 tics
 
-# Pillars: (center x, center y, side). Keep the pool, the weapon spot and the
-# east path (y=0) to the switch clear.
+# Pillars: (center x, center y, side). Keep the pool and the east path (y=0) to the switch clear.
 PILLARS = [(-448, -448, 128), (-448, 448, 128), (448, -448, 128), (448, 448, 128),
            (0, -720, 96), (0, 720, 96), (-720, 0, 96)]
 PILLAR_TEX = "SUPPORT3"
@@ -63,17 +62,12 @@ SWITCH_LINE_ID = 1
 NICHE_TAG = 1
 SPECIAL_LIGHT_CHANGE_TO_VALUE = 112  # Light_ChangeToValue(tag, value)
 
-# Where each level's weapon spawns (must match ArenaHandler.WEAPON_SPOT_TID)
-WEAPON_SPOT_TID = 10
-WEAPON_SPOT = (320, 0)
-
 # Player start: this far in front of the switch, facing it (east)
 PLAYER_DIST_FROM_SWITCH = 192
 PLAYER_ANGLE = 0
 
 # Doom editor numbers
 ED_PLAYER1 = 1
-ED_MAPSPOT = 9001
 
 OUT = Path(__file__).resolve().parent.parent / "mod" / "maps" / f"{MAP_NAME}.wad"
 
@@ -81,6 +75,10 @@ ALL_SKILLS = dict(skill1=True, skill2=True, skill3=True, skill4=True, skill5=Tru
                   single=True, coop=True, dm=True)
 
 COS_HALF = math.cos(math.radians(22.5))   # vertex radius -> wall distance
+TIER_RADII = [MAIN_RADIUS]                # vertex radius of each tier's outer edge
+for _w in STEP_WIDTHS:
+    TIER_RADII.append(TIER_RADII[-1] + round(_w / COS_HALF))
+RADIUS = TIER_RADII[-1]                   # outer wall
 
 
 class MapBuilder:
@@ -155,10 +153,8 @@ def build():
                     texturefloor=POOL_FLAT, textureceiling=CEIL_TEX, lightlevel=POOL_LIGHT,
                     damageamount=POOL_DAMAGE, damageinterval=POOL_DAMAGE_INTERVAL)
 
-    # Step tiers from the inside out; tier k sits between radii[k] and radii[k+1].
-    radii = [RADIUS]
-    for w in STEP_WIDTHS:
-        radii.insert(0, radii[0] - round(w / COS_HALF))
+    # Tiers from the inside out; tier k sits between radii[k] and radii[k+1].
+    radii = TIER_RADII
     tiers = [m.sector(heightfloor=FLOOR_H + STEP_H * (k + 1), heightceiling=CEIL_H,
                       texturefloor=STEP_FLAT, textureceiling=CEIL_TEX, lightlevel=LIGHT)
              for k in range(len(STEP_WIDTHS))]
@@ -218,8 +214,6 @@ def build():
     switch_x = corners[0][0] + NICHE_D
     m.thing(x=float(switch_x - PLAYER_DIST_FROM_SWITCH), y=0.0, angle=PLAYER_ANGLE,
             type=ED_PLAYER1, **ALL_SKILLS)
-    m.thing(x=float(WEAPON_SPOT[0]), y=float(WEAPON_SPOT[1]), angle=0,
-            type=ED_MAPSPOT, id=WEAPON_SPOT_TID, **ALL_SKILLS)
     return m.textmap()
 
 

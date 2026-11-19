@@ -5,7 +5,7 @@ version "4.10"
 // Requires enablescriptscreenshot=1.
 //
 // Scenes (cvar devshot_scene, set from SHOTS=<name>):
-//   start  - one shot from the player start, untouched
+//   start  - from the player start: the switch, then turn around to the arena
 //   look   - turn around near the center (east of the pool): 4 shots at 0/90/180/270 degrees
 //   button - walk up to the east switch, press it, look at the spawn area
 //   acid   - stand in the acid pool for 2 s, shot (health should drop)
@@ -22,11 +22,18 @@ class DevShotHandler : EventHandler
 		if (t < 0) return;
 
 		String scene = CVar.FindCVar('devshot_scene').GetString();
-		if (scene == "start") { if (t == 0) level.MakeScreenShot(); }
+		if (scene == "start") StartScene(pmo, t);
 		else if (scene == "button") ButtonScene(pmo, t);
 		else if (scene == "levels") LevelsScene(pmo, t);
 		else if (scene == "acid") AcidScene(pmo, t);
 		else LookScene(pmo, t);
+	}
+
+	void StartScene(PlayerPawn pmo, int t)
+	{
+		if (t == 0) level.MakeScreenShot();
+		else if (t == 5) Face(pmo, 180);
+		else if (t == 10) level.MakeScreenShot();
 	}
 
 	void LookScene(PlayerPawn pmo, int t)

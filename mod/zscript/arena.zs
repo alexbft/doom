@@ -4,13 +4,12 @@
 //   * if monsters are alive -> refuse ("Kill all monsters first");
 //   * otherwise level N+1 starts: "Level N" on screen, its monsters spawn away
 //     from the player, items are scattered around (never in the acid pool),
-//     the weapon appears at the WEAPON_SPOT_TID MapSpot, players are healed to full health. Level contents come from ArenaLevelConfig (ARENALVL lump).
+//     the weapon appears at a random spot too, players are healed to full health. Level contents come from ArenaLevelConfig (ARENALVL lump).
 class ArenaHandler : EventHandler
 {
 	const SWITCH_LINE_ID = 1;
-	const WEAPON_SPOT_TID = 10;     // MapSpot for the level's weapon
-	const SPAWN_RADIUS = 1150;      // arena outer wall is ~1240 from the center
-	const ITEM_RADIUS = 950;
+	const SPAWN_RADIUS = 1450;      // outer wall is ~1525 from the center (tiers start at ~1015)
+	const ITEM_RADIUS = 1000;       // items and weapon: mostly the main floor
 	const MONSTER_MIN_DIST = 640;   // from the player
 	const SPAWN_TRIES = 64;
 	const CLEAR_CHECK_TICS = 10;
@@ -112,9 +111,7 @@ class ArenaHandler : EventHandler
 		class<Weapon> w = cfg.WeaponFor(n);
 		if (w)
 		{
-			let spot = level.CreateActorIterator(WEAPON_SPOT_TID).Next();
-			Vector2 p = spot ? spot.pos.xy : (0, 0);
-			let mo = Actor.Spawn(w, (p, level.PointInSector(p).floorplane.ZAtPoint(p)));
+			let mo = SpawnRandom(w, ITEM_RADIUS, avoid, 0);
 			if (mo) Actor.Spawn("ItemFog", mo.pos);
 		}
 	}
