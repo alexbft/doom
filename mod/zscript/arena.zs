@@ -4,7 +4,7 @@
 //   * if monsters are alive -> refuse ("Kill all monsters first");
 //   * otherwise level N+1 starts: "Level N" on screen, its monsters spawn away
 //     from the player, items are scattered around, the weapon appears in the
-//     arena center. Level contents come from ArenaLevelConfig (ARENALVL lump).
+//     arena center, players are healed to full health. Level contents come from ArenaLevelConfig (ARENALVL lump).
 class ArenaHandler : EventHandler
 {
 	const SWITCH_LINE_ID = 1;
@@ -84,6 +84,7 @@ class ArenaHandler : EventHandler
 		arenaLevel = n;
 		clearAnnounced = false;
 		Announce(String.Format("Level %d", n));
+		HealPlayers();
 
 		double scale = cfg.Scale(n);
 		Vector2 avoid = pmo.pos.xy;
@@ -112,6 +113,17 @@ class ArenaHandler : EventHandler
 		{
 			let mo = Actor.Spawn(w, (0, 0, level.PointInSector((0, 0)).floorplane.ZAtPoint((0, 0))));
 			if (mo) Actor.Spawn("ItemFog", mo.pos);
+		}
+	}
+
+	// Every new level starts with full health (armor and upgrades untouched).
+	static void HealPlayers()
+	{
+		for (int i = 0; i < MAXPLAYERS; i++)
+		{
+			if (!playeringame[i]) continue;
+			let mo = players[i].mo;
+			if (mo && mo.health > 0) mo.GiveBody(mo.GetMaxHealth(true));
 		}
 	}
 

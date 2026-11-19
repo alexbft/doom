@@ -4,7 +4,7 @@ A roguelite arena mod for the classic Doom engine, built on **UZDoom** (GZDoom f
 
 Planned gameplay: the player spawns in an open arena (pillars, lava/acid), monsters spawn in waves, kills give XP, each level-up gives +max HP and a choice of upgrades to existing Doom weapons (no new weapons planned for now). After clearing all monsters (and possibly a boss) the player moves on to the next arena.
 
-Current state: a single octagonal arena `ARENA01`; the player starts in front of a wall switch. Each press (allowed only when no monsters are alive) starts the next level: shows "Level N", spawns that level's monsters, items and one new weapon. Levels are configured in `mod/ARENALVL.txt`; after the last one it repeats with growing counts.
+Current state: a single octagonal arena `ARENA01` with 7 square pillars; the player starts in front of a wall switch. Each press (allowed only when no monsters are alive) starts the next level: shows "Level N", spawns that level's monsters, items and one new weapon, and heals players to 100%. Levels are configured in `mod/ARENALVL.txt`; after the last one it repeats with growing counts.
 
 ## Layout
 

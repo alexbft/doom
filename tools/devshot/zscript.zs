@@ -61,10 +61,10 @@ class DevShotHandler : EventHandler
 		case 45:  level.MakeScreenShot(); break;                 // monsters, items, weapon
 		case 50:  Face(pmo, 0); PressSwitch(pmo); break;
 		case 55:  level.MakeScreenShot(); break;                 // "Kill all monsters first"
-		case 60:  KillAll(); break;
-		case 90:  level.MakeScreenShot(); break;                 // "Level 1 cleared!"
+		case 60:  KillAll(); pmo.A_SetHealth(30); break;
+		case 90:  level.MakeScreenShot(); break;                 // "Level 1 cleared!", 30% health
 		case 120: PressSwitch(pmo); break;
-		case 125: level.MakeScreenShot(); break;                 // "Level 2"
+		case 125: level.MakeScreenShot(); break;                 // "Level 2", healed to 100%
 		}
 	}
 

@@ -2,6 +2,7 @@
 """Generate mod/maps/ARENA01.wad: an octagonal open-sky arena (UDMF).
 
 Layout:
+  * square pillars (holes in the arena sector) give some cover;
   * a switch sits in a small niche in the middle of the east wall;
   * player starts a few steps in front of it, facing the switch;
   * the switch line has id SWITCH_LINE_ID; the game logic (ArenaHandler in
@@ -25,6 +26,12 @@ WALL_TEX = "STONE2"
 FLOOR_TEX = "FLOOR4_8"
 CEIL_TEX = "F_SKY1"    # sky ceiling = open arena
 LIGHT = 192
+
+# Pillars: (center x, center y, side). Keep the east path (y=0) to the switch
+# and the arena center (weapon spawn) clear.
+PILLARS = [(-384, -384, 128), (-384, 384, 128), (384, -384, 128), (384, 384, 128),
+           (0, -640, 96), (0, 640, 96), (-640, 0, 96)]
+PILLAR_TEX = "SUPPORT3"
 
 # Switch niche in the east wall
 NICHE_W, NICHE_H, NICHE_D = 128, 128, 16
@@ -143,6 +150,14 @@ def build():
                special=SPECIAL_LIGHT_CHANGE_TO_VALUE, arg0=NICHE_TAG, arg1=LIGHT,
                playeruse=True, repeatspecial=True)
         m.line(back_bot, n_bot, m.side(niche, texturemiddle=WALL_TEX))
+
+    # Pillars: one-sided lines around a hole in the arena sector. Corners go
+    # counterclockwise so the front (right) side faces out into the arena.
+    for cx, cy, side in PILLARS:
+        h = side // 2
+        pts = [(cx - h, cy - h), (cx + h, cy - h), (cx + h, cy + h), (cx - h, cy + h)]
+        for i in range(4):
+            m.line(pts[i], pts[(i + 1) % 4], m.side(arena, texturemiddle=PILLAR_TEX))
 
     m.thing(x=float(PLAYER_START[0]), y=float(PLAYER_START[1]), angle=PLAYER_ANGLE, type=ED_PLAYER1, **ALL_SKILLS)
     return m.textmap()
