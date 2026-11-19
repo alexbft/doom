@@ -7,8 +7,10 @@ is the flat east wall):
   * along the walls, colosseum-style spectator tiers: each rises STEP_H
     (still walkable) and the last, widest one is a walkway along the wall;
   * square pillars (holes in the main floor sector) give some cover;
-  * a switch sits in a small niche in the middle of the east wall, at ledge
-    level; the player starts on the steps in front of it, facing it;
+  * on the 4 straight sides (E, S, W, N) a floor-level cut CUT_W wide runs
+    through the tiers to the outer wall;
+  * a switch sits in a small niche at the end of the east cut, at floor
+    level; the player starts in the cut in front of it, facing it;
   * the switch line has id SWITCH_LINE_ID; the game logic (ArenaHandler in
     mod/zscript/arena.zs) catches its activation and starts the next level.
     The line special itself is a no-op (sets the niche light to its own
@@ -52,7 +54,12 @@ PILLARS = [(-448, -448, 128), (-448, 448, 128), (448, -448, 128), (448, 448, 128
            (0, -720, 96), (0, 720, 96), (-720, 0, 96)]
 PILLAR_TEX = "SUPPORT3"
 
-# Switch niche in the east wall
+# Floor-level cuts through the tiers on the 4 straight sides (octagon edges
+# 0, 2, 4, 6 = E, S, W, N). They are part of the main floor sector.
+CUT_W = 256
+CUT_EDGES = (0, 2, 4, 6)
+
+# Switch niche at the end of the east cut
 NICHE_W, NICHE_H, NICHE_D = 128, 128, 16
 SWITCH_TEX = "SW1STON2"
 NICHE_CEIL_TEX = "CEIL5_1"
@@ -145,6 +152,14 @@ def octagon(r):
     return pts
 
 
+def rotate(p, q):
+    """Rotate point p by q quarter turns clockwise (east edge -> south -> ...)."""
+    x, y = p
+    for _ in range(q):
+        x, y = y, -x
+    return (x, y)
+
+
 def build():
     m = MapBuilder()
     main = m.sector(heightfloor=FLOOR_H, heightceiling=CEIL_H,
@@ -159,9 +174,8 @@ def build():
                       texturefloor=STEP_FLAT, textureceiling=CEIL_TEX, lightlevel=LIGHT)
              for k in range(len(STEP_WIDTHS))]
     ledge = tiers[-1]
-    ledge_h = FLOOR_H + STEP_H * len(STEP_WIDTHS)
-    niche = m.sector(heightfloor=ledge_h, heightceiling=ledge_h + NICHE_H,
-                     texturefloor=STEP_FLAT, textureceiling=NICHE_CEIL_TEX, lightlevel=LIGHT,
+    niche = m.sector(heightfloor=FLOOR_H, heightceiling=FLOOR_H + NICHE_H,
+                     texturefloor=FLOOR_TEX, textureceiling=NICHE_CEIL_TEX, lightlevel=LIGHT,
                      id=NICHE_TAG)
 
     # Acid pool edge: clockwise, so the front (right) side is the pool; the
@@ -170,38 +184,60 @@ def build():
     for i in range(8):
         m.line(pc[i], pc[(i + 1) % 8], m.side(pool, texturebottom=POOL_EDGE_TEX), m.side(main))
 
-    # Step risers: front = lower (inner) sector, which sees the riser.
+    # Tier edges and the outer wall. The 4 straight sides are built in "east"
+    # local coordinates (edge 0: a vertical segment x = const going from +y
+    # to -y) and rotated into place; the cut is the strip |y| <= CUT_W / 2.
     inner = [main] + tiers[:-1]
-    for k, r in enumerate(radii[:-1]):
-        c = octagon(r)
-        for i in range(8):
-            m.line(c[i], c[(i + 1) % 8], m.side(inner[k], texturebottom=STEP_TEX), m.side(tiers[k]))
-
-    # Outer wall; the east edge (0) has the switch niche in the middle.
-    corners = octagon(RADIUS)
+    xs = [octagon(r)[0][0] for r in radii]      # x of each ring's east edge
+    hw = CUT_W // 2
     for i in range(8):
-        a, b = corners[i], corners[(i + 1) % 8]
-        if i != 0:
-            m.line(a, b, m.side(ledge, texturemiddle=WALL_TEX))
+        if i not in CUT_EDGES:
+            for k, r in enumerate(radii[:-1]):
+                c = octagon(r)
+                m.line(c[i], c[(i + 1) % 8], m.side(inner[k], texturebottom=STEP_TEX),
+                       m.side(tiers[k]))
+            c = octagon(RADIUS)
+            m.line(c[i], c[(i + 1) % 8], m.side(ledge, texturemiddle=WALL_TEX))
             continue
 
-        x = a[0]
-        hw = NICHE_W // 2
-        n_top, n_bot = (x, hw), (x, -hw)
-        back_top, back_bot = (x + NICHE_D, hw), (x + NICHE_D, -hw)
+        q = i // 2
 
-        m.line(a, n_top, m.side(ledge, texturemiddle=WALL_TEX))
-        # Opening into the niche: wall above it is the ledge side's upper texture.
-        m.line(n_top, n_bot, m.side(ledge, texturetop=WALL_TEX), m.side(niche))
-        m.line(n_bot, b, m.side(ledge, texturemiddle=WALL_TEX))
+        def L(a, b, front, back=None, **kw):
+            m.line(rotate(a, q), rotate(b, q), front, back, **kw)
 
+        # Ring edges, minus the part inside the cut (main floor on both sides there).
+        for k, r in enumerate(radii[:-1]):
+            x, y = octagon(r)[0]
+            riser = lambda: m.side(inner[k], texturebottom=STEP_TEX)
+            L((x, y), (x, hw), riser(), m.side(tiers[k]))
+            L((x, -hw), (x, -y), riser(), m.side(tiers[k]))
+            # Cut side walls: main floor (in the cut) sees the tier's side.
+            L((x, hw), (xs[k + 1], hw), m.side(main, texturebottom=STEP_TEX), m.side(tiers[k]))
+            L((xs[k + 1], -hw), (x, -hw), m.side(main, texturebottom=STEP_TEX), m.side(tiers[k]))
+
+        # Outer wall: ledge part on both sides, the cut's end wall in the middle.
+        x, y = octagon(RADIUS)[0]
+        L((x, y), (x, hw), m.side(ledge, texturemiddle=WALL_TEX))
+        L((x, -hw), (x, -y), m.side(ledge, texturemiddle=WALL_TEX))
+        if i != 0:
+            L((x, hw), (x, -hw), m.side(main, texturemiddle=WALL_TEX))
+            continue
+
+        # East cut: the switch niche in the middle of the end wall.
+        nw = NICHE_W // 2
+        n_top, n_bot = (x, nw), (x, -nw)
+        back_top, back_bot = (x + NICHE_D, nw), (x + NICHE_D, -nw)
+        L((x, hw), n_top, m.side(main, texturemiddle=WALL_TEX))
+        # Opening into the niche: wall above it is the main side's upper texture.
+        L(n_top, n_bot, m.side(main, texturetop=WALL_TEX), m.side(niche))
+        L(n_bot, (x, -hw), m.side(main, texturemiddle=WALL_TEX))
         # Niche walls (clockwise around the niche, front faces into it).
-        m.line(n_top, back_top, m.side(niche, texturemiddle=WALL_TEX))
-        m.line(back_top, back_bot, m.side(niche, texturemiddle=SWITCH_TEX),
-               id=SWITCH_LINE_ID,
-               special=SPECIAL_LIGHT_CHANGE_TO_VALUE, arg0=NICHE_TAG, arg1=LIGHT,
-               playeruse=True, repeatspecial=True)
-        m.line(back_bot, n_bot, m.side(niche, texturemiddle=WALL_TEX))
+        L(n_top, back_top, m.side(niche, texturemiddle=WALL_TEX))
+        L(back_top, back_bot, m.side(niche, texturemiddle=SWITCH_TEX),
+          id=SWITCH_LINE_ID,
+          special=SPECIAL_LIGHT_CHANGE_TO_VALUE, arg0=NICHE_TAG, arg1=LIGHT,
+          playeruse=True, repeatspecial=True)
+        L(back_bot, n_bot, m.side(niche, texturemiddle=WALL_TEX))
 
     # Pillars: one-sided lines around a hole in the main sector. Corners go
     # counterclockwise so the front (right) side faces out into the arena.
@@ -211,7 +247,7 @@ def build():
         for i in range(4):
             m.line(pts[i], pts[(i + 1) % 4], m.side(main, texturemiddle=PILLAR_TEX))
 
-    switch_x = corners[0][0] + NICHE_D
+    switch_x = octagon(RADIUS)[0][0] + NICHE_D
     m.thing(x=float(switch_x - PLAYER_DIST_FROM_SWITCH), y=0.0, angle=PLAYER_ANGLE,
             type=ED_PLAYER1, **ALL_SKILLS)
     return m.textmap()
