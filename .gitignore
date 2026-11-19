@@ -1,0 +1,7 @@
+# Downloaded by setup scripts
+.cache/
+engine/
+iwad/
+# Local engine config / saves
+config/
+.DS_Store

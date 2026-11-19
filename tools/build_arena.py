@@ -1,0 +1,164 @@
+#!/usr/bin/env python3
+"""Generate mod/maps/ARENA01.wad: an octagonal open-sky arena (UDMF).
+
+Layout:
+  * player starts in the center facing east;
+  * a switch sits in a small niche in the middle of the east wall;
+  * pressing it spawns monsters (with teleport fog) on MapSpots near the
+    west wall, using the built-in Thing_Spawn line special. Repeatable.
+
+UZDoom builds BSP nodes itself when they are missing, so the WAD only holds
+the map marker, TEXTMAP and ENDMAP lumps.
+
+Usage: python3 tools/build_arena.py
+"""
+import math
+import struct
+from pathlib import Path
+
+MAP_NAME = "ARENA01"
+RADIUS = 1024          # distance from center to the octagon's vertices
+FLOOR_H, CEIL_H = 0, 256
+WALL_TEX = "STONE2"
+FLOOR_TEX = "FLOOR4_8"
+CEIL_TEX = "F_SKY1"    # sky ceiling = open arena
+LIGHT = 192
+
+# Switch niche in the east wall
+NICHE_W, NICHE_H, NICHE_D = 128, 128, 16
+SWITCH_TEX = "SW1STON2"
+NICHE_CEIL_TEX = "CEIL5_1"
+
+# What the switch spawns
+SPAWN_TID = 1                       # MapSpots with this id get a monster
+SPAWN_ID_IMP = 5                    # Thing_Spawn uses SpawnIDs: 4 = ZombieMan, 5 = DoomImp
+SPAWN_SPOTS = [(-700, -256), (-700, 0), (-700, 256)]
+SPAWN_ANGLE_BYTE = 0                # 0 = east (towards the player / switch)
+
+# Doom editor numbers
+ED_PLAYER1 = 1
+ED_MAPSPOT = 9001
+
+OUT = Path(__file__).resolve().parent.parent / "mod" / "maps" / f"{MAP_NAME}.wad"
+
+ALL_SKILLS = dict(skill1=True, skill2=True, skill3=True, skill4=True, skill5=True,
+                  single=True, coop=True, dm=True)
+
+
+class MapBuilder:
+    def __init__(self):
+        self.vertices, self.lines, self.sides, self.sectors, self.things = [], [], [], [], []
+        self._vidx = {}
+
+    def vertex(self, x, y):
+        key = (int(x), int(y))
+        if key not in self._vidx:
+            self._vidx[key] = len(self.vertices)
+            self.vertices.append(key)
+        return self._vidx[key]
+
+    def sector(self, **fields):
+        self.sectors.append(fields)
+        return len(self.sectors) - 1
+
+    def side(self, sector, **tex):
+        self.sides.append(dict(sector=sector, **tex))
+        return len(self.sides) - 1
+
+    def line(self, a, b, front, back=None, **fields):
+        """a -> b; the front side is on the right of the direction of travel."""
+        ld = dict(v1=self.vertex(*a), v2=self.vertex(*b), sidefront=front, **fields)
+        if back is None:
+            ld["blocking"] = True
+        else:
+            ld["sideback"] = back
+            ld["twosided"] = True
+        self.lines.append(ld)
+
+    def thing(self, **fields):
+        self.things.append(fields)
+
+    def textmap(self):
+        out = ['namespace = "zdoom";\n']
+        for x, y in self.vertices:
+            out.append(block("vertex", x=float(x), y=float(y)))
+        out += [block("linedef", **l) for l in self.lines]
+        out += [block("sidedef", **s) for s in self.sides]
+        out += [block("sector", **s) for s in self.sectors]
+        out += [block("thing", **t) for t in self.things]
+        return "".join(out).encode("ascii")
+
+
+def block(kind, **fields):
+    body = []
+    for k, v in fields.items():
+        if isinstance(v, bool):
+            v = "true" if v else "false"
+        elif isinstance(v, str):
+            v = f'"{v}"'
+        body.append(f"  {k} = {v};")
+    return f"{kind}\n{{\n" + "\n".join(body) + "\n}\n"
+
+
+def build():
+    m = MapBuilder()
+    arena = m.sector(heightfloor=FLOOR_H, heightceiling=CEIL_H,
+                     texturefloor=FLOOR_TEX, textureceiling=CEIL_TEX, lightlevel=LIGHT)
+    niche = m.sector(heightfloor=FLOOR_H, heightceiling=FLOOR_H + NICHE_H,
+                     texturefloor=FLOOR_TEX, textureceiling=NICHE_CEIL_TEX, lightlevel=LIGHT)
+
+    # Octagon corners, clockwise; corner 0 is at +22.5 deg so edge 0 is the
+    # flat east wall running from north to south.
+    corners = []
+    for i in range(8):
+        a = math.radians(22.5 - i * 45)
+        corners.append((round(RADIUS * math.cos(a)), round(RADIUS * math.sin(a))))
+
+    for i in range(8):
+        a, b = corners[i], corners[(i + 1) % 8]
+        if i != 0:
+            m.line(a, b, m.side(arena, texturemiddle=WALL_TEX))
+            continue
+
+        # East wall with the switch niche in the middle.
+        x = a[0]
+        hw = NICHE_W // 2
+        n_top, n_bot = (x, hw), (x, -hw)
+        back_top, back_bot = (x + NICHE_D, hw), (x + NICHE_D, -hw)
+
+        m.line(a, n_top, m.side(arena, texturemiddle=WALL_TEX))
+        # Opening into the niche: wall above it is the arena side's upper texture.
+        m.line(n_top, n_bot, m.side(arena, texturetop=WALL_TEX), m.side(niche))
+        m.line(n_bot, b, m.side(arena, texturemiddle=WALL_TEX))
+
+        # Niche walls (clockwise around the niche, front faces into it).
+        m.line(n_top, back_top, m.side(niche, texturemiddle=WALL_TEX))
+        m.line(back_top, back_bot, m.side(niche, texturemiddle=SWITCH_TEX),
+               special=135,                     # Thing_Spawn(tid, spawnid, angle, newtid)
+               arg0=SPAWN_TID, arg1=SPAWN_ID_IMP, arg2=SPAWN_ANGLE_BYTE,
+               playeruse=True, repeatspecial=True)
+        m.line(back_bot, n_bot, m.side(niche, texturemiddle=WALL_TEX))
+
+    m.thing(x=0.0, y=0.0, angle=0, type=ED_PLAYER1, **ALL_SKILLS)
+    for sx, sy in SPAWN_SPOTS:
+        m.thing(x=float(sx), y=float(sy), angle=0, type=ED_MAPSPOT, id=SPAWN_TID, **ALL_SKILLS)
+    return m.textmap()
+
+
+def write_wad(path, lumps):
+    data = b""
+    directory = []
+    offset = 12
+    for name, content in lumps:
+        directory.append((offset, len(content), name))
+        data += content
+        offset += len(content)
+    header = struct.pack("<4sii", b"PWAD", len(lumps), offset)
+    dir_bytes = b"".join(struct.pack("<ii8s", o, s, n.encode("ascii")) for o, s, n in directory)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(header + data + dir_bytes)
+
+
+if __name__ == "__main__":
+    write_wad(OUT, [(MAP_NAME, b""), ("TEXTMAP", build()), ("ENDMAP", b"")])
+    print(f"wrote {OUT}")

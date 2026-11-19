@@ -1,0 +1,15 @@
+// Replace the stock Freedoom episodes: "New Game" goes straight to the arena.
+clearepisodes
+
+episode ARENA01
+{
+	name = "Arena"
+	key = "a"
+}
+
+map ARENA01 "The Arena"
+{
+	sky1 = "SKY1"
+	music = "D_RUNNIN"
+	next = "ARENA01"
+}
