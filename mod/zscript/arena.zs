@@ -3,13 +3,14 @@
 // Pressing the switch (line id SWITCH_LINE_ID, see tools/build_arena.py):
 //   * if monsters are alive -> refuse ("Kill all monsters first");
 //   * otherwise level N+1 starts: "Level N" on screen, its monsters spawn away
-//     from the player, items are scattered around, the weapon appears in the
-//     arena center, players are healed to full health. Level contents come from ArenaLevelConfig (ARENALVL lump).
+//     from the player, items are scattered around (never in the acid pool),
+//     the weapon appears at the WEAPON_SPOT_TID MapSpot, players are healed to full health. Level contents come from ArenaLevelConfig (ARENALVL lump).
 class ArenaHandler : EventHandler
 {
 	const SWITCH_LINE_ID = 1;
-	const SPAWN_RADIUS = 860;       // arena octagon inner radius is ~946
-	const ITEM_RADIUS = 700;
+	const WEAPON_SPOT_TID = 10;     // MapSpot for the level's weapon
+	const SPAWN_RADIUS = 1150;      // arena outer wall is ~1240 from the center
+	const ITEM_RADIUS = 950;
 	const MONSTER_MIN_DIST = 640;   // from the player
 	const SPAWN_TRIES = 64;
 	const CLEAR_CHECK_TICS = 10;
@@ -111,7 +112,9 @@ class ArenaHandler : EventHandler
 		class<Weapon> w = cfg.WeaponFor(n);
 		if (w)
 		{
-			let mo = Actor.Spawn(w, (0, 0, level.PointInSector((0, 0)).floorplane.ZAtPoint((0, 0))));
+			let spot = level.CreateActorIterator(WEAPON_SPOT_TID).Next();
+			Vector2 p = spot ? spot.pos.xy : (0, 0);
+			let mo = Actor.Spawn(w, (p, level.PointInSector(p).floorplane.ZAtPoint(p)));
 			if (mo) Actor.Spawn("ItemFog", mo.pos);
 		}
 	}
@@ -133,7 +136,8 @@ class ArenaHandler : EventHandler
 	}
 
 	// Spawns cls at a random free spot within `radius` of the arena center,
-	// at least `minDist` from `avoid`. Returns null if no spot was found.
+	// at least `minDist` from `avoid` and not on a damaging floor (acid).
+	// Returns null if no spot was found.
 	static Actor SpawnRandom(class<Actor> cls, double radius, Vector2 avoid, double minDist)
 	{
 		for (int t = 0; t < SPAWN_TRIES; t++)
@@ -143,7 +147,9 @@ class ArenaHandler : EventHandler
 			Vector2 p = (cos(a) * r, sin(a) * r);
 			if ((p - avoid).Length() < minDist) continue;
 
-			Vector3 pos = (p, level.PointInSector(p).floorplane.ZAtPoint(p));
+			let sec = level.PointInSector(p);
+			if (sec.damageamount > 0) continue;
+			Vector3 pos = (p, sec.floorplane.ZAtPoint(p));
 			if (!level.IsPointInLevel(pos)) continue;
 
 			let mo = Actor.Spawn(cls, pos, ALLOW_REPLACE);

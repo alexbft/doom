@@ -6,8 +6,9 @@ version "4.10"
 //
 // Scenes (cvar devshot_scene, set from SHOTS=<name>):
 //   start  - one shot from the player start, untouched
-//   look   - turn around in the center: 4 shots at 0/90/180/270 degrees
+//   look   - turn around near the center (east of the pool): 4 shots at 0/90/180/270 degrees
 //   button - walk up to the east switch, press it, look at the spawn area
+//   acid   - stand in the acid pool for 2 s, shot (health should drop)
 //   levels - level 1, refused press, kill all, cleared message, level 2
 class DevShotHandler : EventHandler
 {
@@ -24,6 +25,7 @@ class DevShotHandler : EventHandler
 		if (scene == "start") { if (t == 0) level.MakeScreenShot(); }
 		else if (scene == "button") ButtonScene(pmo, t);
 		else if (scene == "levels") LevelsScene(pmo, t);
+		else if (scene == "acid") AcidScene(pmo, t);
 		else LookScene(pmo, t);
 	}
 
@@ -32,7 +34,7 @@ class DevShotHandler : EventHandler
 		static const double ANGLES[] = { 0, 90, 180, 270 };
 		int i = t / 15;
 		if (i >= ANGLES.Size()) return;
-		if (t == 0) pmo.SetOrigin((0, 0, 0), false);
+		if (t == 0) pmo.SetOrigin((480, 0, 0), false);   // just east of the acid pool
 		if (t % 15 == 0) Face(pmo, ANGLES[i]);
 		else if (t % 15 == 14) level.MakeScreenShot();
 	}
@@ -41,11 +43,11 @@ class DevShotHandler : EventHandler
 	{
 		switch (t)
 		{
-		case 0:   pmo.SetOrigin((860, 0, 0), false); Face(pmo, 0); break;
+		case 0:   Face(pmo, 0); break;                           // player start is in front of the switch
 		case 10:  level.MakeScreenShot(); break;                 // the switch up close
 		case 15:  PressSwitch(pmo); break;
 		case 20:  level.MakeScreenShot(); break;                 // switch toggled
-		case 25:  pmo.SetOrigin((0, 0, 0), false); Face(pmo, 180); break;
+		case 25:  pmo.SetOrigin((480, 0, 0), false); Face(pmo, 180); break;
 		case 30:  level.MakeScreenShot(); break;                 // teleport fog
 		case 60:  level.MakeScreenShot(); break;                 // monsters
 		}
@@ -66,6 +68,12 @@ class DevShotHandler : EventHandler
 		case 120: PressSwitch(pmo); break;
 		case 125: level.MakeScreenShot(); break;                 // "Level 2", healed to 100%
 		}
+	}
+
+	void AcidScene(PlayerPawn pmo, int t)
+	{
+		if (t == 0) { pmo.SetOrigin((0, 0, 0), false); Face(pmo, 180); }
+		else if (t == 70) level.MakeScreenShot();
 	}
 
 	static void KillAll()

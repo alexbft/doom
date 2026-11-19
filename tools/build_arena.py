@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 """Generate mod/maps/ARENA01.wad: an octagonal open-sky arena (UDMF).
 
-Layout:
-  * square pillars (holes in the arena sector) give some cover;
-  * a switch sits in a small niche in the middle of the east wall;
-  * player starts a few steps in front of it, facing the switch;
+Layout (all rings are concentric octagons, corner 0 at +22.5 deg so edge 0
+is the flat east wall):
+  * flat main floor in the middle with an acid (nukage) pool at the center;
+  * along the walls, STEP_COUNT tiers rising STEP_H each (the last, widest
+    one is a ledge running along the wall);
+  * square pillars (holes in the main floor sector) give some cover;
+  * a switch sits in a small niche in the middle of the east wall, at ledge
+    level; the player starts on the steps in front of it, facing it;
   * the switch line has id SWITCH_LINE_ID; the game logic (ArenaHandler in
     mod/zscript/arena.zs) catches its activation and starts the next level.
     The line special itself is a no-op (sets the niche light to its own
-    value) - it only exists so the switch is usable and toggles its texture.
+    value) - it only exists so the switch is usable and toggles its texture;
+  * a MapSpot with tid WEAPON_SPOT_TID marks where each level's weapon appears.
 
 UZDoom builds BSP nodes itself when they are missing, so the WAD only holds
 the map marker, TEXTMAP and ENDMAP lumps.
@@ -20,17 +25,32 @@ import struct
 from pathlib import Path
 
 MAP_NAME = "ARENA01"
-RADIUS = 1024          # distance from center to the octagon's vertices
-FLOOR_H, CEIL_H = 0, 256
+RADIUS = 1344          # distance from center to the outer wall's vertices
+FLOOR_H, CEIL_H = 0, 320
 WALL_TEX = "STONE2"
 FLOOR_TEX = "FLOOR4_8"
 CEIL_TEX = "F_SKY1"    # sky ceiling = open arena
 LIGHT = 192
 
-# Pillars: (center x, center y, side). Keep the east path (y=0) to the switch
-# and the arena center (weapon spawn) clear.
-PILLARS = [(-384, -384, 128), (-384, 384, 128), (384, -384, 128), (384, 384, 128),
-           (0, -640, 96), (0, 640, 96), (-640, 0, 96)]
+# Steps along the walls: widths (perpendicular, wall-to-center order is
+# reversed: the last entry is the outermost ledge) and height of each step.
+STEP_WIDTHS = [64, 64, 96]
+STEP_H = 16
+STEP_TEX = "STEP6"     # 16 px tall riser texture
+STEP_FLAT = "FLAT5_4"
+
+# Acid pool in the center
+POOL_RADIUS = 192      # octagon vertex radius
+POOL_DEPTH = 8
+POOL_FLAT = "NUKAGE1"
+POOL_EDGE_TEX = "NUKE24"
+POOL_LIGHT = 224
+POOL_DAMAGE, POOL_DAMAGE_INTERVAL = 5, 32   # classic nukage: 5 hp per 32 tics
+
+# Pillars: (center x, center y, side). Keep the pool, the weapon spot and the
+# east path (y=0) to the switch clear.
+PILLARS = [(-448, -448, 128), (-448, 448, 128), (448, -448, 128), (448, 448, 128),
+           (0, -720, 96), (0, 720, 96), (-720, 0, 96)]
 PILLAR_TEX = "SUPPORT3"
 
 # Switch niche in the east wall
@@ -43,17 +63,24 @@ SWITCH_LINE_ID = 1
 NICHE_TAG = 1
 SPECIAL_LIGHT_CHANGE_TO_VALUE = 112  # Light_ChangeToValue(tag, value)
 
-# Player start: just in front of the switch, facing it (east)
-PLAYER_START = (768, 0)
+# Where each level's weapon spawns (must match ArenaHandler.WEAPON_SPOT_TID)
+WEAPON_SPOT_TID = 10
+WEAPON_SPOT = (320, 0)
+
+# Player start: this far in front of the switch, facing it (east)
+PLAYER_DIST_FROM_SWITCH = 192
 PLAYER_ANGLE = 0
 
 # Doom editor numbers
 ED_PLAYER1 = 1
+ED_MAPSPOT = 9001
 
 OUT = Path(__file__).resolve().parent.parent / "mod" / "maps" / f"{MAP_NAME}.wad"
 
 ALL_SKILLS = dict(skill1=True, skill2=True, skill3=True, skill4=True, skill5=True,
                   single=True, coop=True, dm=True)
+
+COS_HALF = math.cos(math.radians(22.5))   # vertex radius -> wall distance
 
 
 class MapBuilder:
@@ -111,37 +138,66 @@ def block(kind, **fields):
     return f"{kind}\n{{\n" + "\n".join(body) + "\n}\n"
 
 
-def build():
-    m = MapBuilder()
-    arena = m.sector(heightfloor=FLOOR_H, heightceiling=CEIL_H,
-                     texturefloor=FLOOR_TEX, textureceiling=CEIL_TEX, lightlevel=LIGHT)
-    niche = m.sector(heightfloor=FLOOR_H, heightceiling=FLOOR_H + NICHE_H,
-                     texturefloor=FLOOR_TEX, textureceiling=NICHE_CEIL_TEX, lightlevel=LIGHT,
-                     id=NICHE_TAG)
-
-    # Octagon corners, clockwise; corner 0 is at +22.5 deg so edge 0 is the
-    # flat east wall running from north to south.
-    corners = []
+def octagon(r):
+    """Corners of an octagon with vertex radius r, clockwise from +22.5 deg."""
+    pts = []
     for i in range(8):
         a = math.radians(22.5 - i * 45)
-        corners.append((round(RADIUS * math.cos(a)), round(RADIUS * math.sin(a))))
+        pts.append((round(r * math.cos(a)), round(r * math.sin(a))))
+    return pts
 
+
+def build():
+    m = MapBuilder()
+    main = m.sector(heightfloor=FLOOR_H, heightceiling=CEIL_H,
+                    texturefloor=FLOOR_TEX, textureceiling=CEIL_TEX, lightlevel=LIGHT)
+    pool = m.sector(heightfloor=FLOOR_H - POOL_DEPTH, heightceiling=CEIL_H,
+                    texturefloor=POOL_FLAT, textureceiling=CEIL_TEX, lightlevel=POOL_LIGHT,
+                    damageamount=POOL_DAMAGE, damageinterval=POOL_DAMAGE_INTERVAL)
+
+    # Step tiers from the inside out; tier k sits between radii[k] and radii[k+1].
+    radii = [RADIUS]
+    for w in STEP_WIDTHS:
+        radii.insert(0, radii[0] - round(w / COS_HALF))
+    tiers = [m.sector(heightfloor=FLOOR_H + STEP_H * (k + 1), heightceiling=CEIL_H,
+                      texturefloor=STEP_FLAT, textureceiling=CEIL_TEX, lightlevel=LIGHT)
+             for k in range(len(STEP_WIDTHS))]
+    ledge = tiers[-1]
+    ledge_h = FLOOR_H + STEP_H * len(STEP_WIDTHS)
+    niche = m.sector(heightfloor=ledge_h, heightceiling=ledge_h + NICHE_H,
+                     texturefloor=STEP_FLAT, textureceiling=NICHE_CEIL_TEX, lightlevel=LIGHT,
+                     id=NICHE_TAG)
+
+    # Acid pool edge: clockwise, so the front (right) side is the pool; the
+    # pool side sees the main floor's step up as its lower texture.
+    pc = octagon(POOL_RADIUS)
+    for i in range(8):
+        m.line(pc[i], pc[(i + 1) % 8], m.side(pool, texturebottom=POOL_EDGE_TEX), m.side(main))
+
+    # Step risers: front = lower (inner) sector, which sees the riser.
+    inner = [main] + tiers[:-1]
+    for k, r in enumerate(radii[:-1]):
+        c = octagon(r)
+        for i in range(8):
+            m.line(c[i], c[(i + 1) % 8], m.side(inner[k], texturebottom=STEP_TEX), m.side(tiers[k]))
+
+    # Outer wall; the east edge (0) has the switch niche in the middle.
+    corners = octagon(RADIUS)
     for i in range(8):
         a, b = corners[i], corners[(i + 1) % 8]
         if i != 0:
-            m.line(a, b, m.side(arena, texturemiddle=WALL_TEX))
+            m.line(a, b, m.side(ledge, texturemiddle=WALL_TEX))
             continue
 
-        # East wall with the switch niche in the middle.
         x = a[0]
         hw = NICHE_W // 2
         n_top, n_bot = (x, hw), (x, -hw)
         back_top, back_bot = (x + NICHE_D, hw), (x + NICHE_D, -hw)
 
-        m.line(a, n_top, m.side(arena, texturemiddle=WALL_TEX))
-        # Opening into the niche: wall above it is the arena side's upper texture.
-        m.line(n_top, n_bot, m.side(arena, texturetop=WALL_TEX), m.side(niche))
-        m.line(n_bot, b, m.side(arena, texturemiddle=WALL_TEX))
+        m.line(a, n_top, m.side(ledge, texturemiddle=WALL_TEX))
+        # Opening into the niche: wall above it is the ledge side's upper texture.
+        m.line(n_top, n_bot, m.side(ledge, texturetop=WALL_TEX), m.side(niche))
+        m.line(n_bot, b, m.side(ledge, texturemiddle=WALL_TEX))
 
         # Niche walls (clockwise around the niche, front faces into it).
         m.line(n_top, back_top, m.side(niche, texturemiddle=WALL_TEX))
@@ -151,15 +207,19 @@ def build():
                playeruse=True, repeatspecial=True)
         m.line(back_bot, n_bot, m.side(niche, texturemiddle=WALL_TEX))
 
-    # Pillars: one-sided lines around a hole in the arena sector. Corners go
+    # Pillars: one-sided lines around a hole in the main sector. Corners go
     # counterclockwise so the front (right) side faces out into the arena.
     for cx, cy, side in PILLARS:
         h = side // 2
         pts = [(cx - h, cy - h), (cx + h, cy - h), (cx + h, cy + h), (cx - h, cy + h)]
         for i in range(4):
-            m.line(pts[i], pts[(i + 1) % 4], m.side(arena, texturemiddle=PILLAR_TEX))
+            m.line(pts[i], pts[(i + 1) % 4], m.side(main, texturemiddle=PILLAR_TEX))
 
-    m.thing(x=float(PLAYER_START[0]), y=float(PLAYER_START[1]), angle=PLAYER_ANGLE, type=ED_PLAYER1, **ALL_SKILLS)
+    switch_x = corners[0][0] + NICHE_D
+    m.thing(x=float(switch_x - PLAYER_DIST_FROM_SWITCH), y=0.0, angle=PLAYER_ANGLE,
+            type=ED_PLAYER1, **ALL_SKILLS)
+    m.thing(x=float(WEAPON_SPOT[0]), y=float(WEAPON_SPOT[1]), angle=0,
+            type=ED_MAPSPOT, id=WEAPON_SPOT_TID, **ALL_SKILLS)
     return m.textmap()
 
 
