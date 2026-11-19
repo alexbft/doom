@@ -14,9 +14,19 @@ class ArenaHandler : EventHandler
 	const SPAWN_TRIES = 64;
 	const CLEAR_CHECK_TICS = 10;
 
+	// On-screen messages (drawn by RenderOverlay instead of the small MidPrint)
+	const MSG_TICS = 105;           // 3 s on screen ...
+	const MSG_FADE_TICS = 35;       // ... the last second fading out
+	const MSG_TOP = 0.2;            // first line's top, fraction of screen height
+	const TITLE_HEIGHT = 0.09;      // first line's height, fraction of screen height
+	const SUBTITLE_SCALE = 0.55;    // further lines, relative to the first
+	const MSG_MAX_WIDTH = 0.92;     // lines are shrunk to fit this screen fraction
+
 	ArenaLevelConfig config;
 	int arenaLevel;                 // last started level, 0 = none yet
 	bool clearAnnounced;
+	String msg;                     // current message, lines separated by \n
+	int msgTic;                     // level.maptime when it was shown
 
 	ArenaLevelConfig GetConfig()
 	{
@@ -33,7 +43,7 @@ class ArenaHandler : EventHandler
 	{
 		if (level.maptime == 5)
 		{
-			Announce("Press the switch\nto start");
+			Announce("Arena\nPress the switch to start");
 		}
 		else if (arenaLevel > 0 && !clearAnnounced && level.maptime % CLEAR_CHECK_TICS == 0
 			&& CountAliveMonsters() == 0)
@@ -162,8 +172,36 @@ class ArenaHandler : EventHandler
 		return n;
 	}
 
-	static void Announce(String msg)
+	void Announce(String text)
 	{
-		Console.MidPrint(Font.GetFont("BIGFONT"), msg);
+		msg = text;
+		msgTic = level.maptime;
+	}
+
+	override void RenderOverlay(RenderEvent e)
+	{
+		if (msg.Length() == 0) return;
+		double age = level.maptime - msgTic + e.FracTic;
+		if (age < 0 || age >= MSG_TICS) return;
+		double alpha = clamp((MSG_TICS - age) / MSG_FADE_TICS, 0.0, 1.0);
+
+		Font fnt = Font.GetFont("BIGFONT");
+		int sw = Screen.GetWidth();
+		int sh = Screen.GetHeight();
+		double fh = fnt.GetHeight();
+
+		Array<String> lines;
+		msg.Split(lines, "\n");
+		double y = sh * MSG_TOP;
+		for (int i = 0; i < lines.Size(); i++)
+		{
+			double scale = sh * TITLE_HEIGHT / fh;
+			if (i > 0) scale *= SUBTITLE_SCALE;
+			double w = fnt.StringWidth(lines[i]);
+			if (w > 0 && w * scale > sw * MSG_MAX_WIDTH) scale = sw * MSG_MAX_WIDTH / w;
+			Screen.DrawText(fnt, Font.CR_UNTRANSLATED, (sw - w * scale) / 2, y, lines[i],
+				DTA_ScaleX, scale, DTA_ScaleY, scale, DTA_Alpha, alpha);
+			y += fh * scale * 1.2;
+		}
 	}
 }
