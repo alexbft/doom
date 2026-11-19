@@ -22,6 +22,8 @@ Current state: a single empty octagonal arena `ARENA01` with a wall switch that 
 
 Nothing is installed globally; everything lives in the project folder.
 
+License: the mod's own code and data are MIT (`LICENSE`). The engine (UZDoom, GPL) and Freedoom (BSD) are not part of the repo — they are downloaded by the setup scripts and keep their own licenses. Don't copy engine or Freedoom files into the repo.
+
 ## Commands
 
 ```bash
