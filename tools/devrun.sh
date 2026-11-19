@@ -4,7 +4,7 @@
 # player's settings in config/uzdoom.ini stay untouched.
 # Screenshots go to config/screenshots/.
 # SHOTS=<scene> also loads tools/devshot, which plays a scripted scene and
-# takes screenshots (the game keeps running after). Scenes: look, button
+# takes screenshots (the game keeps running after). Scenes: start, look, button
 # (see tools/devshot/zscript.zs). SHOTS=1 means "look".
 # Extra arguments go to UZDoom.
 set -euo pipefail

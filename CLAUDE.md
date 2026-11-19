@@ -4,7 +4,7 @@ A roguelite arena mod for the classic Doom engine, built on **UZDoom** (GZDoom f
 
 Planned gameplay: the player spawns in an open arena (pillars, lava/acid), monsters spawn in waves, kills give XP, each level-up gives +max HP and a choice of upgrades to existing Doom weapons (no new weapons planned for now). After clearing all monsters (and possibly a boss) the player moves on to the next arena.
 
-Current state: a single empty octagonal arena `ARENA01` with a wall switch that spawns 3 imps.
+Current state: a single empty octagonal arena `ARENA01` with a wall switch that spawns 3 imps; the player starts right in front of the switch.
 
 ## Layout
 
@@ -30,6 +30,7 @@ License: the mod's own code and data are MIT (`LICENSE`). The engine (UZDoom, GP
 ./setup.sh                          # download engine + freedoom2.wad (run.sh calls it if missing)
 python3 tools/build_arena.py        # regenerate mod/maps/ARENA01.wad
 ./run.sh [uzdoom args]              # play (MAP=ARENA01 by default)
+SHOTS=start  tools/devrun.sh        # dev: 1 screenshot from the player start
 SHOTS=look   tools/devrun.sh        # dev: 4 screenshots turning around in the center
 SHOTS=button tools/devrun.sh        # dev: walk to switch, press it, look at spawned monsters
 ```

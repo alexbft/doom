@@ -2,8 +2,8 @@
 """Generate mod/maps/ARENA01.wad: an octagonal open-sky arena (UDMF).
 
 Layout:
-  * player starts in the center facing east;
   * a switch sits in a small niche in the middle of the east wall;
+  * player starts a few steps in front of it, facing the switch;
   * pressing it spawns monsters (with teleport fog) on MapSpots near the
     west wall, using the built-in Thing_Spawn line special. Repeatable.
 
@@ -34,6 +34,10 @@ SPAWN_TID = 1                       # MapSpots with this id get a monster
 SPAWN_ID_IMP = 5                    # Thing_Spawn uses SpawnIDs: 4 = ZombieMan, 5 = DoomImp
 SPAWN_SPOTS = [(-700, -256), (-700, 0), (-700, 256)]
 SPAWN_ANGLE_BYTE = 0                # 0 = east (towards the player / switch)
+
+# Player start: just in front of the switch, facing it (east)
+PLAYER_START = (768, 0)
+PLAYER_ANGLE = 0
 
 # Doom editor numbers
 ED_PLAYER1 = 1
@@ -139,7 +143,7 @@ def build():
                playeruse=True, repeatspecial=True)
         m.line(back_bot, n_bot, m.side(niche, texturemiddle=WALL_TEX))
 
-    m.thing(x=0.0, y=0.0, angle=0, type=ED_PLAYER1, **ALL_SKILLS)
+    m.thing(x=float(PLAYER_START[0]), y=float(PLAYER_START[1]), angle=PLAYER_ANGLE, type=ED_PLAYER1, **ALL_SKILLS)
     for sx, sy in SPAWN_SPOTS:
         m.thing(x=float(sx), y=float(sy), angle=0, type=ED_MAPSPOT, id=SPAWN_TID, **ALL_SKILLS)
     return m.textmap()

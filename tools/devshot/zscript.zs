@@ -5,6 +5,7 @@ version "4.10"
 // Requires enablescriptscreenshot=1.
 //
 // Scenes (cvar devshot_scene, set from SHOTS=<name>):
+//   start  - one shot from the player start, untouched
 //   look   - turn around in the center: 4 shots at 0/90/180/270 degrees
 //   button - walk up to the east switch, press it, look at the spawn area
 class DevShotHandler : EventHandler
@@ -19,7 +20,8 @@ class DevShotHandler : EventHandler
 		if (t < 0) return;
 
 		String scene = CVar.FindCVar('devshot_scene').GetString();
-		if (scene == "button") ButtonScene(pmo, t);
+		if (scene == "start") { if (t == 0) level.MakeScreenShot(); }
+		else if (scene == "button") ButtonScene(pmo, t);
 		else LookScene(pmo, t);
 	}
 
@@ -28,6 +30,7 @@ class DevShotHandler : EventHandler
 		static const double ANGLES[] = { 0, 90, 180, 270 };
 		int i = t / 15;
 		if (i >= ANGLES.Size()) return;
+		if (t == 0) pmo.SetOrigin((0, 0, 0), false);
 		if (t % 15 == 0) Face(pmo, ANGLES[i]);
 		else if (t % 15 == 14) level.MakeScreenShot();
 	}
