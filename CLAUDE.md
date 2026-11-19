@@ -9,7 +9,7 @@ Current state: a single empty octagonal arena `ARENA01` with a wall switch that 
 ## Layout
 
 | Path | What |
-|---|---|
+| --- | --- |
 | `mod/` | The mod itself, loaded as a folder via `-file mod` |
 | `mod/MAPINFO` | Replaces stock episodes; "New Game" goes straight to `ARENA01` |
 | `mod/maps/ARENA01.wad` | **Generated** by `tools/build_arena.py` — don't edit by hand |
