@@ -8,6 +8,7 @@ version "4.10"
 //   start  - one shot from the player start, untouched
 //   look   - turn around in the center: 4 shots at 0/90/180/270 degrees
 //   button - walk up to the east switch, press it, look at the spawn area
+//   levels - level 1, refused press, kill all, cleared message, level 2
 class DevShotHandler : EventHandler
 {
 	const START = 35;   // let the level settle for a second
@@ -22,6 +23,7 @@ class DevShotHandler : EventHandler
 		String scene = CVar.FindCVar('devshot_scene').GetString();
 		if (scene == "start") { if (t == 0) level.MakeScreenShot(); }
 		else if (scene == "button") ButtonScene(pmo, t);
+		else if (scene == "levels") LevelsScene(pmo, t);
 		else LookScene(pmo, t);
 	}
 
@@ -49,6 +51,33 @@ class DevShotHandler : EventHandler
 		}
 	}
 
+	void LevelsScene(PlayerPawn pmo, int t)
+	{
+		switch (t)
+		{
+		case 0:   pmo.player.cheats |= CF_GODMODE; PressSwitch(pmo); break;
+		case 5:   level.MakeScreenShot(); break;                 // "Level 1"
+		case 10:  Face(pmo, 180); break;
+		case 45:  level.MakeScreenShot(); break;                 // monsters, items, weapon
+		case 50:  Face(pmo, 0); PressSwitch(pmo); break;
+		case 55:  level.MakeScreenShot(); break;                 // "Kill all monsters first"
+		case 60:  KillAll(); break;
+		case 90:  level.MakeScreenShot(); break;                 // "Level 1 cleared!"
+		case 120: PressSwitch(pmo); break;
+		case 125: level.MakeScreenShot(); break;                 // "Level 2"
+		}
+	}
+
+	static void KillAll()
+	{
+		let it = ThinkerIterator.Create("Actor");
+		Actor mo;
+		while (mo = Actor(it.Next()))
+		{
+			if (mo.bIsMonster && mo.health > 0) mo.DamageMobj(null, null, 1000000, 'None');
+		}
+	}
+
 	static void Face(PlayerPawn pmo, double ang)
 	{
 		pmo.A_SetAngle(ang);
@@ -59,7 +88,7 @@ class DevShotHandler : EventHandler
 	{
 		foreach (ln : level.Lines)
 		{
-			if (ln.special == 135) // Thing_Spawn
+			if (ArenaHandler.IsArenaSwitch(ln))
 			{
 				ln.Activate(pmo, Line.front, SPAC_Use);
 				return;

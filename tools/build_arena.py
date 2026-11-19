@@ -4,8 +4,10 @@
 Layout:
   * a switch sits in a small niche in the middle of the east wall;
   * player starts a few steps in front of it, facing the switch;
-  * pressing it spawns monsters (with teleport fog) on MapSpots near the
-    west wall, using the built-in Thing_Spawn line special. Repeatable.
+  * the switch line has id SWITCH_LINE_ID; the game logic (ArenaHandler in
+    mod/zscript/arena.zs) catches its activation and starts the next level.
+    The line special itself is a no-op (sets the niche light to its own
+    value) - it only exists so the switch is usable and toggles its texture.
 
 UZDoom builds BSP nodes itself when they are missing, so the WAD only holds
 the map marker, TEXTMAP and ENDMAP lumps.
@@ -29,11 +31,10 @@ NICHE_W, NICHE_H, NICHE_D = 128, 128, 16
 SWITCH_TEX = "SW1STON2"
 NICHE_CEIL_TEX = "CEIL5_1"
 
-# What the switch spawns
-SPAWN_TID = 1                       # MapSpots with this id get a monster
-SPAWN_ID_IMP = 5                    # Thing_Spawn uses SpawnIDs: 4 = ZombieMan, 5 = DoomImp
-SPAWN_SPOTS = [(-700, -256), (-700, 0), (-700, 256)]
-SPAWN_ANGLE_BYTE = 0                # 0 = east (towards the player / switch)
+# Switch wiring (must match ArenaHandler.SWITCH_LINE_ID in mod/zscript/arena.zs)
+SWITCH_LINE_ID = 1
+NICHE_TAG = 1
+SPECIAL_LIGHT_CHANGE_TO_VALUE = 112  # Light_ChangeToValue(tag, value)
 
 # Player start: just in front of the switch, facing it (east)
 PLAYER_START = (768, 0)
@@ -41,7 +42,6 @@ PLAYER_ANGLE = 0
 
 # Doom editor numbers
 ED_PLAYER1 = 1
-ED_MAPSPOT = 9001
 
 OUT = Path(__file__).resolve().parent.parent / "mod" / "maps" / f"{MAP_NAME}.wad"
 
@@ -109,7 +109,8 @@ def build():
     arena = m.sector(heightfloor=FLOOR_H, heightceiling=CEIL_H,
                      texturefloor=FLOOR_TEX, textureceiling=CEIL_TEX, lightlevel=LIGHT)
     niche = m.sector(heightfloor=FLOOR_H, heightceiling=FLOOR_H + NICHE_H,
-                     texturefloor=FLOOR_TEX, textureceiling=NICHE_CEIL_TEX, lightlevel=LIGHT)
+                     texturefloor=FLOOR_TEX, textureceiling=NICHE_CEIL_TEX, lightlevel=LIGHT,
+                     id=NICHE_TAG)
 
     # Octagon corners, clockwise; corner 0 is at +22.5 deg so edge 0 is the
     # flat east wall running from north to south.
@@ -138,14 +139,12 @@ def build():
         # Niche walls (clockwise around the niche, front faces into it).
         m.line(n_top, back_top, m.side(niche, texturemiddle=WALL_TEX))
         m.line(back_top, back_bot, m.side(niche, texturemiddle=SWITCH_TEX),
-               special=135,                     # Thing_Spawn(tid, spawnid, angle, newtid)
-               arg0=SPAWN_TID, arg1=SPAWN_ID_IMP, arg2=SPAWN_ANGLE_BYTE,
+               id=SWITCH_LINE_ID,
+               special=SPECIAL_LIGHT_CHANGE_TO_VALUE, arg0=NICHE_TAG, arg1=LIGHT,
                playeruse=True, repeatspecial=True)
         m.line(back_bot, n_bot, m.side(niche, texturemiddle=WALL_TEX))
 
     m.thing(x=float(PLAYER_START[0]), y=float(PLAYER_START[1]), angle=PLAYER_ANGLE, type=ED_PLAYER1, **ALL_SKILLS)
-    for sx, sy in SPAWN_SPOTS:
-        m.thing(x=float(sx), y=float(sy), angle=0, type=ED_MAPSPOT, id=SPAWN_TID, **ALL_SKILLS)
     return m.textmap()
 
 

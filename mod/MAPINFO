@@ -13,3 +13,8 @@ map ARENA01 "The Arena"
 	music = "D_RUNNIN"
 	next = "ARENA01"
 }
+
+gameinfo
+{
+	AddEventHandlers = "ArenaHandler"
+}

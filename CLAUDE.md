@@ -4,14 +4,17 @@ A roguelite arena mod for the classic Doom engine, built on **UZDoom** (GZDoom f
 
 Planned gameplay: the player spawns in an open arena (pillars, lava/acid), monsters spawn in waves, kills give XP, each level-up gives +max HP and a choice of upgrades to existing Doom weapons (no new weapons planned for now). After clearing all monsters (and possibly a boss) the player moves on to the next arena.
 
-Current state: a single empty octagonal arena `ARENA01` with a wall switch that spawns 3 imps; the player starts right in front of the switch.
+Current state: a single octagonal arena `ARENA01`; the player starts in front of a wall switch. Each press (allowed only when no monsters are alive) starts the next level: shows "Level N", spawns that level's monsters, items and one new weapon. Levels are configured in `mod/ARENALVL.txt`; after the last one it repeats with growing counts.
 
 ## Layout
 
 | Path | What |
 | --- | --- |
 | `mod/` | The mod itself, loaded as a folder via `-file mod` |
-| `mod/MAPINFO` | Replaces stock episodes; "New Game" goes straight to `ARENA01` |
+| `mod/MAPINFO` | Replaces stock episodes; "New Game" goes straight to `ARENA01`; registers `ArenaHandler` |
+| `mod/ARENALVL.txt` | Level config (monsters / items / weapon per level), syntax documented in the file |
+| `mod/zscript/arena.zs` | `ArenaHandler`: switch logic, spawning, on-screen messages |
+| `mod/zscript/levels.zs` | `ArenaLevelConfig`: parser for `ARENALVL` |
 | `mod/maps/ARENA01.wad` | **Generated** by `tools/build_arena.py` — don't edit by hand |
 | `tools/build_arena.py` | UDMF map generator (geometry, switch, spawn spots). Re-run after editing |
 | `tools/devrun.sh` | Quiet dev launch: small window, `-nosound`, own config `config/dev.ini` |
@@ -33,6 +36,7 @@ python3 tools/build_arena.py        # regenerate mod/maps/ARENA01.wad
 SHOTS=start  tools/devrun.sh        # dev: 1 screenshot from the player start
 SHOTS=look   tools/devrun.sh        # dev: 4 screenshots turning around in the center
 SHOTS=button tools/devrun.sh        # dev: walk to switch, press it, look at spawned monsters
+SHOTS=levels tools/devrun.sh        # dev: level 1, refused press, kill all, level 2
 ```
 
 Screenshots land in `config/screenshots/`. The game keeps running after a scene — the caller must terminate it (e.g. a Python wrapper that waits for N PNGs, then `terminate()`).
@@ -41,7 +45,8 @@ Screenshots land in `config/screenshots/`. The game keeps running after a scene 
 
 - For my own launches **always use `tools/devrun.sh`** (windowed, muted, separate config). Never launch `run.sh` for automated checks — it opens with sound and uses the player's config.
 - Console `+wait`/`+exec` on the command line run before the map loads, so screenshots must be taken from ZScript (`level.MakeScreenShot()`, needs `enablescriptscreenshot 1`). Add new scenes to `tools/devshot/zscript.zs`.
-- Check engine stdout for ZScript/MAPINFO errors, and look at the screenshots before reporting a visual change as done.
+- Check engine stdout for ZScript/MAPINFO errors. On a script error the engine prints `Execution could not continue` and hangs instead of exiting — the wrapper must watch for it and kill the process.
+- Check engine stdout for `Arena:` config warnings, and look at the screenshots before reporting a visual change as done.
 
 ## Engine notes
 

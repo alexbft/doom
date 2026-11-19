@@ -1,0 +1,148 @@
+// Arena level configuration (read by ArenaLevelConfig in mod/zscript/levels.zs).
+//
+// Each press of the arena switch starts the next level: it spawns that
+// level's monsters (away from the player), scatters its items around the
+// arena and puts its weapon in the arena center. The switch only works once
+// every monster is dead.
+//
+// Syntax (one directive per line, // or # starts a comment):
+//   level                    start a new level block (levels go in order)
+//   monster <Class> <count>  monsters to spawn
+//   item    <Class> <count>  pickups (health, armor, ammo, powerups)
+//   weapon  <Class>          the level's new weapon (at most one)
+//   overflow_scale <x>       global: after the last level, the last level
+//                            repeats with monster/item counts multiplied by
+//                            1 + x * (levels past the end), without a weapon
+//
+// Class names are standard Doom actor names, e.g.
+//   monsters: ZombieMan ShotgunGuy ChaingunGuy DoomImp Demon Spectre LostSoul
+//             Cacodemon HellKnight BaronOfHell Arachnotron PainElemental
+//             Revenant Fatso Archvile Cyberdemon SpiderMastermind
+//   items:    HealthBonus Stimpack Medikit Soulsphere Megasphere
+//             ArmorBonus GreenArmor BlueArmor
+//             Clip ClipBox Shell ShellBox RocketAmmo RocketBox Cell CellPack
+//   weapons:  Chainsaw Shotgun SuperShotgun Chaingun RocketLauncher
+//             PlasmaRifle BFG9000
+
+overflow_scale 0.25
+
+level   // 1
+weapon  Shotgun
+monster ZombieMan 4
+monster DoomImp   3
+item    Stimpack  2
+item    Clip      2
+item    Shell     3
+
+level   // 2
+weapon  Chaingun
+monster ZombieMan  4
+monster ShotgunGuy 3
+monster DoomImp    5
+monster Demon      1
+item    Stimpack   3
+item    ArmorBonus 6
+item    Clip       3
+item    Shell      3
+
+level   // 3
+weapon  Chainsaw
+monster ShotgunGuy 4
+monster DoomImp    6
+monster Demon      3
+monster Spectre    1
+monster LostSoul   3
+item    Stimpack   3
+item    GreenArmor 1
+item    ClipBox    1
+item    Shell      4
+
+level   // 4
+weapon  SuperShotgun
+monster ShotgunGuy  4
+monster ChaingunGuy 2
+monster DoomImp     6
+monster Demon       3
+monster Cacodemon   2
+item    Medikit     2
+item    ArmorBonus  8
+item    ShellBox    1
+item    ClipBox     1
+
+level   // 5
+weapon  RocketLauncher
+monster ChaingunGuy 3
+monster DoomImp     6
+monster Demon       4
+monster Cacodemon   3
+monster HellKnight  2
+item    Medikit     2
+item    GreenArmor  1
+item    RocketAmmo  4
+item    ShellBox    1
+
+level   // 6
+weapon  PlasmaRifle
+monster DoomImp       8
+monster Spectre       4
+monster Cacodemon     4
+monster HellKnight    3
+monster Revenant      2
+monster PainElemental 1
+item    Medikit       3
+item    BlueArmor     1
+item    Cell          4
+item    RocketAmmo    3
+item    ShellBox      1
+
+level   // 7
+weapon  BFG9000
+monster ChaingunGuy  4
+monster Cacodemon    4
+monster BaronOfHell  2
+monster Revenant     3
+monster Arachnotron  2
+monster Fatso        1
+item    Medikit      3
+item    Soulsphere   1
+item    CellPack     1
+item    RocketBox    1
+item    ShellBox     1
+
+level   // 8
+monster HellKnight   4
+monster BaronOfHell  3
+monster Revenant     4
+monster Fatso        2
+monster Arachnotron  2
+monster Archvile     1
+item    Medikit      4
+item    BlueArmor    1
+item    CellPack     1
+item    RocketBox    1
+item    ShellBox     1
+
+level   // 9
+monster Cacodemon     6
+monster BaronOfHell   4
+monster Revenant      5
+monster Fatso         3
+monster Archvile      2
+monster PainElemental 2
+item    Medikit       4
+item    Megasphere    1
+item    CellPack      2
+item    RocketBox     2
+item    ShellBox      1
+
+level   // 10
+monster Cyberdemon   1
+monster DoomImp      10
+monster Revenant     4
+monster BaronOfHell  3
+item    Medikit      4
+item    Soulsphere   1
+item    BlueArmor    1
+item    CellPack     2
+item    RocketBox    2
+item    ShellBox     2
