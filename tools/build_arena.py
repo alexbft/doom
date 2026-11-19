@@ -29,7 +29,7 @@ MAP_NAME = "ARENA01"
 MAIN_RADIUS = 1100     # vertex radius of the flat main floor (inside the tiers)
 FLOOR_H, CEIL_H = 0, 448
 WALL_TEX = "STONE2"
-FLOOR_TEX = "FLOOR4_8"
+FLOOR_TEX = "FLAT5_5"    # sandy, so grey weapons/items stand out
 CEIL_TEX = "F_SKY1"    # sky ceiling = open arena
 LIGHT = 192
 
